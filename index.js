@@ -19,6 +19,24 @@ app.use(cookieParser());
 
 const uri = `mongodb+srv://${process.env.JP_KEYS}:${process.env.JP_PASS}@cluster0.ackxm.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0`;
 
+const VerifyToken = (req, res, next) => {
+  const token = req?.cookies?.Token;
+  // console.log('cuk cuk cokkkee', token);
+
+  if (!token) {
+    return res.status(403).json({ message: 'Token not provided!' });
+  }
+
+  jwt.verify(token, process.env.Secrect_Key, (err, decoded) => {
+    if (err) {
+      return res.status(401).json({ message: 'Invalid token!' });
+    }
+
+    req.user = decoded;
+    next();
+  });
+};
+
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
   serverApi: {
@@ -46,13 +64,13 @@ async function run() {
       res
         .cookie('Token', token, {
           httpOnly: true,
-          secure: false, // HTTPS প্রয়োজন (ডেভেলপমেন্টে false করতে পারেন)
+          secure: false, //for Localhost
         })
         .send({ message: true });
     });
 
     app.get('/Jobs', async (req, res) => {
-      // console.log(req.cookies);
+      // console.log('success');
       const AllData = JobsCollection.find();
       const result = await AllData.toArray();
       res.send(result);
@@ -65,9 +83,7 @@ async function run() {
       res.send(Data);
     });
 
-    app.get('/JobsApply', async (req, res) => {
-      // console.log(req.cookies);
-
+    app.get('/JobsApply', VerifyToken, async (req, res) => {
       const UserEmail = req?.query?.email;
 
       if (!UserEmail) {
